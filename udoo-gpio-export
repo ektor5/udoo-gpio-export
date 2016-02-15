@@ -1,0 +1,176 @@
+#!/bin/bash
+
+# UDOO Team @ 2016/01
+# Auto GPIO exporting and linking script
+
+PRE="/sys/class"
+SENSOR_DIR="/sensors"
+GPIO_DIR="/gpio"
+
+if egrep -qsi "udoo.*(neo)" /proc/device-tree/model; then
+
+  # see: http://udoo.org/docs-neo/Hardware_&_Accessories/Gpio.html
+  echo "Exporting UDOO Neo GPIOs"
+  VALUEADDR[16]=106
+  VALUEADDR[17]=107
+  VALUEADDR[18]=180
+  VALUEADDR[19]=181
+  VALUEADDR[20]=172
+  VALUEADDR[21]=173
+  VALUEADDR[22]=182
+  VALUEADDR[23]=124
+  VALUEADDR[24]=25
+  VALUEADDR[25]=22
+  VALUEADDR[26]=14
+  VALUEADDR[27]=15
+  VALUEADDR[28]=16
+  VALUEADDR[29]=17
+  VALUEADDR[30]=18
+  VALUEADDR[31]=19
+  VALUEADDR[32]=20
+  VALUEADDR[33]=21
+  VALUEADDR[34]=203
+  VALUEADDR[35]=202
+  VALUEADDR[36]=177
+  VALUEADDR[37]=176
+  VALUEADDR[38]=175
+  VALUEADDR[39]=174
+  VALUEADDR[40]=119
+  VALUEADDR[41]=124
+  VALUEADDR[42]=127
+  VALUEADDR[43]=116
+  VALUEADDR[44]=7
+  VALUEADDR[45]=6
+  VALUEADDR[46]=5
+  VALUEADDR[47]=4
+
+  define -A SENSORS
+  SENSORS[accelerometer]="misc/FreescaleAccelerometer"
+  SENSORS[magnetometer]="misc/FreescaleMagnetometer"
+  SENSORS[gyroscope]="misc/FreescaleGyroscope"
+  SENSORS[temperature]="i2c-dev/i2c-1/device/1-0048"
+  SENSORS[barometer]="i2c-dev/i2c-1/device/1-0060"
+
+elif egrep -qsi "udoo.*(quad|dual)" /proc/device-tree/model; then
+  # see: http://udoo.org/docs/Hardware%20&%20Accessories/UDOO_GPIO_Pinout
+  echo "Exporting UDOO Quad/Dual GPIOs"
+  VALUEADDR[0]=116
+  VALUEADDR[1]=112
+  VALUEADDR[2]=20
+  VALUEADDR[3]=16
+  VALUEADDR[4]=17
+  VALUEADDR[5]=18
+  VALUEADDR[6]=41
+  VALUEADDR[7]=42
+  VALUEADDR[8]=21
+  VALUEADDR[9]=19
+  VALUEADDR[10]=1
+  VALUEADDR[11]=9
+  VALUEADDR[12]=3
+  VALUEADDR[13]=40
+  VALUEADDR[14]=150
+  VALUEADDR[15]=162
+  VALUEADDR[16]=160
+  VALUEADDR[17]=161
+  VALUEADDR[18]=158
+  VALUEADDR[19]=159
+  VALUEADDR[20]=92
+  VALUEADDR[21]=85
+  VALUEADDR[22]=123
+  VALUEADDR[23]=124
+  VALUEADDR[24]=125
+  VALUEADDR[25]=126
+  VALUEADDR[26]=127
+  VALUEADDR[27]=133
+  VALUEADDR[28]=134
+  VALUEADDR[29]=135
+  VALUEADDR[30]=136
+  VALUEADDR[31]=137
+  VALUEADDR[32]=138
+  VALUEADDR[33]=139
+  VALUEADDR[34]=140
+  VALUEADDR[35]=141
+  VALUEADDR[36]=142
+  VALUEADDR[37]=143
+  VALUEADDR[38]=54
+  VALUEADDR[39]=205
+  VALUEADDR[40]=32
+  VALUEADDR[41]=35
+  VALUEADDR[42]=34
+  VALUEADDR[43]=33
+  VALUEADDR[44]=101
+  VALUEADDR[45]=144
+  VALUEADDR[46]=145
+  VALUEADDR[47]=89
+  VALUEADDR[48]=105
+  VALUEADDR[49]=104
+  VALUEADDR[50]=57
+  VALUEADDR[51]=56
+  VALUEADDR[52]=55
+  VALUEADDR[53]=88
+  VALUEADDR[54]=8
+  VALUEADDR[55]=7
+
+else 
+  echo "$0: Board not Supported"
+  exit 1 
+fi
+
+if [ $UID -ne 0 ]
+then
+  echo root privileges needed
+  exit 1
+fi
+
+##### export gpios and setting them in input mode
+
+if [ "$GPIO_DIR" == "/"]; then
+  echo "GPIO_DIR not valid"
+  exit 99
+fi
+
+#delete old dir
+rm -rf "$GPIO_DIR"
+mkdir "$GPIO_DIR"
+
+for i in ${!VALUEADDR[*]}; do
+  #export
+	echo ${VALUEADDR[$i]} > /sys/class/gpio/export
+  #set input
+	echo in > /sys/class/gpio/gpio${VALUEADDR[$i]}/direction
+  #link them
+	ln -s /sys/class/gpio/gpio${VALUEADDR[$i]} /gpio/pin$i
+done
+
+##### export sensors
+if [ "$SENSOR_DIR" == "/"]; then
+  echo "SENSOR_DIR not valid"
+  exit 99
+fi
+
+#delete old dir
+rm -rf "$SENSOR_DIR"
+#do not create sensor dir if no available
+if [ ! -d /sensors ] && [ -n "${!SENSORS[*]}" ] ; then
+  mkdir "$SENSOR_DIR"
+fi
+
+for i in ${!SENSORS[*]}; do
+  sensor=${SENSORS[$i]}
+
+  #skip if sensor do not exist
+  if [ ! -d $sensor ]
+  then
+    continue
+  fi
+
+  #enable
+  case $sensor in
+    acc*|gyr*|mag*) echo 1 > $PRE/$sensor/enable 
+    *) ;;
+  esac
+
+  #link to dir
+  ln -s "$PRE/$sensor/" "$SENSOR_DIR/$i"
+
+done
