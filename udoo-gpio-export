@@ -3,11 +3,44 @@
 # UDOO Team @ 2016/01
 # Auto GPIO exporting and linking script
 
+VERSION="0.1.0"
 PRE="/sys/class"
 SENSOR_DIR="/sensors"
 GPIO_DIR="/gpio"
+ 
+if [ $UID -ne 0 ]
+then
+  echo root privileges needed
+  exit 1
+fi
 
-if egrep -qsi "udoo.*(neo)" /proc/device-tree/model; then
+version() {
+  echo $VERSION
+  exit 0
+}
+
+usage() {
+ echo "$0 [option]
+ Simple bash script that exports all the GPIOs and Brick Sensors in two
+ directories ( /gpio and /sensors by default ).
+
+ Options:
+    <none>        Export automatically all the GPIOs/Sensors
+
+    --version -v  Open an interactive shell in a rootfs
+    --help    -h  Show this help 
+ " 
+ exit ${1-0}
+}
+
+case $1 in 
+  --version|-v) version ;;
+  --help|-h|--usage) usage ;;
+  ?*) usage 1 ;;
+esac
+
+if egrep -qsi "udoo.*(neo)" /proc/device-tree/model
+then
 
   # see: http://udoo.org/docs-neo/Hardware_&_Accessories/Gpio.html
   echo "Exporting UDOO Neo GPIOs"
@@ -18,7 +51,7 @@ if egrep -qsi "udoo.*(neo)" /proc/device-tree/model; then
   VALUEADDR[20]=172
   VALUEADDR[21]=173
   VALUEADDR[22]=182
-  VALUEADDR[23]=124
+  VALUEADDR[23]=24
   VALUEADDR[24]=25
   VALUEADDR[25]=22
   VALUEADDR[26]=14
@@ -44,14 +77,16 @@ if egrep -qsi "udoo.*(neo)" /proc/device-tree/model; then
   VALUEADDR[46]=5
   VALUEADDR[47]=4
 
-  define -A SENSORS
+  declare -A SENSORS
   SENSORS[accelerometer]="misc/FreescaleAccelerometer"
   SENSORS[magnetometer]="misc/FreescaleMagnetometer"
   SENSORS[gyroscope]="misc/FreescaleGyroscope"
   SENSORS[temperature]="i2c-dev/i2c-1/device/1-0048"
-  SENSORS[barometer]="i2c-dev/i2c-1/device/1-0060"
+  SENSORS[barometer]="i2c-dev/i2c-1/device/1-0060/iio:device0"
 
-elif egrep -qsi "udoo.*(quad|dual)" /proc/device-tree/model; then
+elif egrep -qsi "udoo.*(quad|dual)" /proc/device-tree/model
+then
+
   # see: http://udoo.org/docs/Hardware%20&%20Accessories/UDOO_GPIO_Pinout
   echo "Exporting UDOO Quad/Dual GPIOs"
   VALUEADDR[0]=116
@@ -111,66 +146,87 @@ elif egrep -qsi "udoo.*(quad|dual)" /proc/device-tree/model; then
   VALUEADDR[54]=8
   VALUEADDR[55]=7
 
-else 
+else
   echo "$0: Board not Supported"
-  exit 1 
-fi
-
-if [ $UID -ne 0 ]
-then
-  echo root privileges needed
   exit 1
 fi
 
 ##### export gpios and setting them in input mode
 
-if [ "$GPIO_DIR" == "/"]; then
+if [ "$GPIO_DIR" == "/" ]
+then
   echo "GPIO_DIR not valid"
   exit 99
 fi
 
 #delete old dir
+if mountpoint -q $GPIO_DIR
+then umount $GPIO_DIR
+fi
+
 rm -rf "$GPIO_DIR"
 mkdir "$GPIO_DIR"
 
-for i in ${!VALUEADDR[*]}; do
-  #export
-	echo ${VALUEADDR[$i]} > /sys/class/gpio/export
-  #set input
-	echo in > /sys/class/gpio/gpio${VALUEADDR[$i]}/direction
+#mount tmpfs
+mount -t tmpfs -o size=20m tmpfs $GPIO_DIR
+
+for i in ${!VALUEADDR[*]}
+do
+  gpio_dir=$PRE/gpio/gpio${VALUEADDR[$i]}
+
+  #dont export twice
+  if [ ! -d $gpio_dir ] 
+  then
+    #export
+    echo ${VALUEADDR[$i]} > $PRE/gpio/export || continue
+    #set input
+    echo in > $PRE/gpio/gpio${VALUEADDR[$name]}/direction
+  fi
+
   #link them
-	ln -s /sys/class/gpio/gpio${VALUEADDR[$i]} /gpio/pin$i
+  ln -s $gpio_dir /gpio/pin$i
 done
 
 ##### export sensors
-if [ "$SENSOR_DIR" == "/"]; then
+
+if [ "$SENSOR_DIR" == "/" ]
+then
   echo "SENSOR_DIR not valid"
   exit 99
 fi
 
+if mountpoint -q $SENSOR_DIR
+then umount $SENSOR_DIR
+fi
+
 #delete old dir
 rm -rf "$SENSOR_DIR"
+
 #do not create sensor dir if no available
-if [ ! -d /sensors ] && [ -n "${!SENSORS[*]}" ] ; then
+if [ -n "${!SENSORS[*]}" ]
+then
   mkdir "$SENSOR_DIR"
 fi
 
-for i in ${!SENSORS[*]}; do
-  sensor=${SENSORS[$i]}
+#mount tmpfs
+mount -t tmpfs -o size=20m tmpfs $SENSOR_DIR
+
+for name in ${!SENSORS[*]}
+do
+  sensor_path=$PRE/${SENSORS[$name]}
 
   #skip if sensor do not exist
-  if [ ! -d $sensor ]
-  then
-    continue
-  fi
+  [ -d $sensor_path ] || continue
 
-  #enable
-  case $sensor in
-    acc*|gyr*|mag*) echo 1 > $PRE/$sensor/enable 
-    *) ;;
+  case $name in
+    acc*|gyr*|mag*) 
+      #enable
+      echo 1 > $sensor_path/enable || continue ;;
+    temp*) 
+      [ -e $sensor_path/temp1_input ] || continue ;;
   esac
 
   #link to dir
-  ln -s "$PRE/$sensor/" "$SENSOR_DIR/$i"
+  ln -s "$sensor/" "$SENSOR_DIR/$name"
 
 done
