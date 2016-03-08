@@ -227,6 +227,6 @@ do
   esac
 
   #link to dir
-  ln -s "$sensor/" "$SENSOR_DIR/$name"
+  ln -s "$sensor_path/" "$SENSOR_DIR/$name"
 
 done
