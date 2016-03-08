@@ -3,16 +3,10 @@
 # UDOO Team @ 2016/01
 # Auto GPIO exporting and linking script
 
-VERSION="0.1.0"
+VERSION="0.1.2"
 PRE="/sys/class"
 SENSOR_DIR="/sensors"
 GPIO_DIR="/gpio"
- 
-if [ $UID -ne 0 ]
-then
-  echo root privileges needed
-  exit 1
-fi
 
 version() {
   echo $VERSION
@@ -38,6 +32,12 @@ case $1 in
   --help|-h|--usage) usage ;;
   ?*) usage 1 ;;
 esac
+ 
+if [ $UID -ne 0 ]
+then
+  echo root privileges needed
+  exit 1
+fi
 
 if egrep -qsi "udoo.*(neo)" /proc/device-tree/model
 then
