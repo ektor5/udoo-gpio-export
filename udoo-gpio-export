@@ -180,7 +180,7 @@ do
     #export
     echo ${VALUEADDR[$i]} > $PRE/gpio/export || continue
     #set input
-    echo in > $PRE/gpio/gpio${VALUEADDR[$name]}/direction
+    echo in > $PRE/gpio/gpio${VALUEADDR[$i]}/direction
   fi
 
   #link them
