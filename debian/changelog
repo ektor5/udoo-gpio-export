@@ -1,0 +1,5 @@
+udoo-gpio-export (0.1.2) unstable; urgency=low
+
+  * Initial release 
+
+ -- Ettore Chimenti <ek5.chimenti@gmail.com>  Mon, 15 Feb 2016 16:44:41 +0100

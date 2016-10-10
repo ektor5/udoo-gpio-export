@@ -1,0 +1,14 @@
+Source: udoo-gpio-export
+Section: utils
+Priority: optional
+Maintainer: Ettore Chimenti <ek5.chimenti@gmail.com>
+Build-Depends: debhelper (>= 8.0.0)
+Standards-Version: 3.9.4
+Homepage: http://udoo.org
+Vcs-Browser: http://github.org/ektor5/udoo-gpio-export.git
+
+Package: udoo-gpio-export
+Architecture: all
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Auto GPIO exporting and linking script for UDOO
+ Simple bash script that exports all the GPIOs and Brick Sensors in two directories ( /gpio and /sensors by default ).

@@ -1,0 +1,14 @@
+#
+# udoo-gpio-export - exports gpio and sensors
+#
+
+author      "Ettore Chimenti"
+description "Auto GPIO exporting and linking script for UDOO"
+
+start on started dbus
+stop on stopped dbus
+
+task
+
+exec /usr/bin/udoo-gpio-export | sed "s/^/`date` (sys): /"
+
