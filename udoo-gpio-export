@@ -202,11 +202,8 @@ fi
 #delete old dir
 rm -rf "$SENSOR_DIR"
 
-#do not create sensor dir if no available
-if [ -n "${!SENSORS[*]}" ]
-then
-  mkdir "$SENSOR_DIR"
-fi
+#create sensor dir even if no available
+mkdir -p "$SENSOR_DIR"
 
 #mount tmpfs
 mount -t tmpfs -o size=20m tmpfs $SENSOR_DIR
